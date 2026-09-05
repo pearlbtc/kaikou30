@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>开口30天</title>
+<meta name="description" content="每天30分钟，跟练开口表达。朗读、复述、录一录，30天练出有条理的表达。">
+<meta name="theme-color" content="#fff">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="开口30天">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app">
+  <!-- 顶部栏 -->
+  <header id="topbar">
+    <div class="tb-left" id="tbStreak">🔥 0天</div>
+    <div class="tb-title">开口30天</div>
+    <button class="tb-right" id="tbMenu" aria-label="菜单">☰</button>
+  </header>
+
+  <!-- 页面容器：四个 page -->
+  <main id="pages">
+    <!-- ============ 今日 ============ -->
+    <section class="page" id="page-today" data-title="今日">
+      <div class="greet">
+        <div id="greetName" class="greet-name"></div>
+        <div id="greetDay" class="greet-sub"></div>
+      </div>
+      <div class="day-card">
+        <div class="day-num" id="dayNum">第 1 天</div>
+        <div class="day-progress"><div class="day-progress-bar" id="dayProgressBar"></div></div>
+        <div class="day-stats" id="dayStats">0/6 完成</div>
+      </div>
+
+      <div class="task-list" id="taskList"></div>
+
+      <div class="daily-quote">
+        <div class="dq-label">今日金句</div>
+        <div class="dq-text" id="dailyQuote"></div>
+      </div>
+    </section>
+
+    <!-- ============ 素材 ============ -->
+    <section class="page" id="page-material" data-title="素材">
+      <div class="tabs" id="matTabs"></div>
+      <div class="mat-content" id="matContent"></div>
+    </section>
+
+    <!-- ============ 记录 ============ -->
+    <section class="page" id="page-record" data-title="记录">
+      <div id="recSummary" class="rec-summary"></div>
+      <div class="rec-block">
+        <div class="rec-title">打卡日历</div>
+        <div id="recCalendar" class="rec-calendar"></div>
+      </div>
+      <div class="rec-block">
+        <div class="rec-title">
+          录音回顾
+          <button class="rec-link" id="recAnchorBtn">🎧 首日VS今天</button>
+        </div>
+        <div id="recRecordings" class="rec-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ 我的 ============ -->
+    <section class="page" id="page-me" data-title="我的">
+      <div class="me-card">
+        <div class="me-avatar" id="meAvatar">😶</div>
+        <div class="me-name" id="meName"></div>
+        <div class="me-sub" id="meSub"></div>
+      </div>
+
+      <div class="me-block">
+        <div class="me-block-title">数据</div>
+        <div class="me-stats-grid" id="meStats"></div>
+      </div>
+
+      <div class="me-block">
+        <div class="me-block-title">徽章</div>
+        <div id="meBadges" class="me-badges"></div>
+      </div>
+
+      <div class="me-block">
+        <div class="me-block-title">AI 陪练</div>
+        <div class="me-config" id="meAiConfig"></div>
+      </div>
+
+      <div class="me-block">
+        <div class="me-block-title">提醒</div>
+        <div class="me-config" id="meRemind"></div>
+      </div>
+
+      <div class="me-block">
+        <div class="me-block-title">关于</div>
+        <div class="me-config">
+          <button class="btn-ghost" id="btnNickname">改昵称</button>
+          <button class="btn-ghost" id="btnShare">分享给朋友</button>
+          <button class="btn-ghost" id="btnExport">备份数据</button>
+          <button class="btn-ghost" id="btnReset">重置计划</button>
+          <div class="about-tip">数据只保存在你自己的手机里，不经过任何服务器。换手机前先备份。</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 底部导航 -->
+  <nav id="tabbar">
+    <button class="tab active" data-page="today"><span class="t-ico">🎯</span><span class="t-txt">今日</span></button>
+    <button class="tab" data-page="material"><span class="t-ico">📚</span><span class="t-txt">素材</span></button>
+    <button class="tab" data-page="record"><span class="t-ico">📅</span><span class="t-txt">记录</span></button>
+    <button class="tab" data-page="me"><span class="t-ico">👤</span><span class="t-txt">我的</span></button>
+  </nav>
+</div>
+
+<!-- ============ 弹层容器 ============ -->
+<div id="modal" class="modal hidden"></div>
+<div id="toast" class="toast hidden"></div>
+
+<script src="data/words.js"></script>
+<script src="data/quotes.js"></script>
+<script src="data/guwen.js"></script>
+<script src="data/manfu.js"></script>
+<script src="data/haoci.js"></script>
+<script src="data/maoxuan.js"></script>
+<script src="data/raokouling.js"></script>
+<script src="data/topics.js"></script>
+<script src="ai.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
