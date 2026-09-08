@@ -12,6 +12,9 @@ const pad = n => String(n).padStart(2, '0');
 const fmtDate = ts => { const d = new Date(ts); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const fmtHM = ts => { const d = new Date(ts); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/* ---- 微信环境检测（微信内置浏览器禁录音/部分禁播放） ---- */
+const isWeChat = /MicroMessenger/i.test(navigator.userAgent || '');
+const canMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 
 /* ============ 存储层（localStorage + IndexedDB） ============ */
 const Store = {
@@ -107,6 +110,7 @@ const Recorder = {
     return '';
   },
   async start() {
+    if (!canMedia) throw new Error('当前环境不支持录音（微信/浏览器设置）；可改用文字模式');
     this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const Cls = window.MediaRecorder; if (!Cls) throw new Error('浏览器不支持录音');
     this.media = new Cls(this.stream, this.mime() ? { mimeType: this.mime() } : undefined);
@@ -212,20 +216,48 @@ function finishTask(key, openNext) {
 
 /* ---- 任务1：口部操 ---- */
 const MOUTH_STEPS = [
-  ['嘟嘴→咧嘴', '用力嘟嘴，再用力咧开。×10'],
-  ['顶腮', '舌尖用力顶左腮，再顶右腮。各×10'],
-  ['绕舌', '舌尖绕嘴唇一圈，顺时针→逆时针。各×5圈'],
-  ['弹舌', '舌头用力弹上颚，像马蹄声。×20'],
-  ['开牙关', '张大嘴→闭合，感受耳根酸胀。×10'],
+  ['嘟嘴→咧嘴', '用力嘟嘴，再用力咧开。×10', 'mao1'],
+  ['顶腮', '舌尖用力顶左腮，再顶右腮。各×10', 'mao2'],
+  ['绕舌', '舌尖绕嘴唇一圈，顺时针→逆时针。各×5圈', 'mao3'],
+  ['弹舌', '舌头用力弹上颚，像马蹄声。×20', 'mao4'],
+  ['开牙关', '张大嘴→闭合，感受耳根酸胀。×10', 'mao5'],
 ];
+/* SVG 动画脸：根据动作类型渲染嘴型/腮部动态 */
+function mouthSVG(stage) {
+  // stage: 0 嘟嘴 1 咧嘴 2 顶腮 3 绕舌 4 弹舌 5 开牙关
+  const W = 200, H = 150;
+  const face = `<ellipse cx="100" cy="85" rx="62" ry="58" fill="#ffd9c0" stroke="#e8590c" stroke-width="2"></ellipse>`;
+  const eyes = `<circle cx="72" cy="72" r="7" fill="#5b4636"></circle><circle cx="128" cy="72" r="7" fill="#5b4636"></circle>`;
+  let mouth = '';
+  let anim = '';
+  if (stage === 0) { // 嘟嘴
+    mouth = `<ellipse cx="100" cy="112" rx="14" ry="9" fill="#c2410c"></ellipse>`;
+  } else if (stage === 1) { // 咧嘴
+    mouth = `<path d="M 68 110 Q 100 128 132 110" fill="none" stroke="#c2410c" stroke-width="4" stroke-linecap="round"></path><path d="M 74 112 Q 100 126 126 112" fill="#c2410c"></path>`;
+  } else if (stage === 2) { // 顶腮（舌头鼓左边）
+    mouth = `<path d="M 76 108 Q 100 118 124 108" fill="none" stroke="#c2410c" stroke-width="3" stroke-linecap="round"></path><circle cx="82" cy="108" r="8" fill="#e88" opacity=".85"></circle>`;
+  } else if (stage === 3) { // 绕舌（舌头转动动画）
+    mouth = `<circle cx="100" cy="112" r="10" fill="#e88" opacity=".9"><animate attributeName="cx" values="88;112;88" dur="1.6s" repeatCount="indefinite"></animate><animate attributeName="cy" values="106;118;106" dur="1.6s" repeatCount="indefinite"></animate></circle>`;
+  } else if (stage === 4) { // 弹舌（上下弹动）
+    mouth = `<circle cx="100" cy="112" r="9" fill="#e88" opacity=".9"><animate attributeName="cy" values="108;118;108" dur="0.5s" repeatCount="indefinite"></animate></circle>`;
+  } else if (stage === 5) { // 开牙关（大口张开+闭合动画）
+    mouth = `<path d="M 76 100 L 124 100 L 118 130 L 82 130 Z" fill="#7c2d12"><animate attributeName="opacity" values="1;0.35;1" dur="2s" repeatCount="indefinite"></animate></path><path d="M 76 98 Q 100 90 124 98" fill="none" stroke="#c2410c" stroke-width="3"></path>`;
+  }
+  return `<svg viewBox="0 0 200 150" width="200" height="150" style="margin:0 auto;display:block">${face}${eyes}${mouth}</svg>`;
+}
 function openMouth() {
   let i = 0;
   openSheet('口部操 · 2分钟',
-    `<div class="flash-card" id="mouthStep"></div>
+    `<div id="mouthAnim" style="margin-bottom:8px"></div>
+     <div class="flash-card" id="mouthStep" style="min-height:64px"></div>
      <div class="flash-hint" id="mouthHint"></div>
      <div class="rec-btn-row"><button class="rec-btn play" id="mouthNext">下一个</button></div>`,
     { onMount(m) {
-      const show = () => { $('.flash-card', m).textContent = MOUTH_STEPS[i][0]; $('.flash-hint', m).textContent = MOUTH_STEPS[i][1]; };
+      const show = () => {
+        $('#mouthAnim').innerHTML = mouthSVG(i);
+        $('.flash-card', m).textContent = MOUTH_STEPS[i][0];
+        $('.flash-hint', m).textContent = MOUTH_STEPS[i][1];
+      };
       show();
       $('#mouthNext').addEventListener('click', () => { i++; if (i >= MOUTH_STEPS.length) { closeSheet(); finishTask('mouth'); } else show(); });
     }});
@@ -259,13 +291,31 @@ function openReaderBody(bless, title, taskKey, opts) {
       <div class="body">${esc(bless.text)}</div>
       ${bless.trans ? `<div class="trans">${esc(bless.trans)}</div>` : ''}
       ${opts && opts.tip ? `<div class="flash-hint" style="margin-top:10px">${esc(opts.tip)}</div>` : ''}
-      <div class="btns"><button class="btn btn-primary" onclick="App.__recReader('${taskKey}')">🎙 录一遍交差</button></div>
+      <div class="btns">
+        <button class="btn btn-ghost" id="ttsBtn">🔊 听示范</button>
+        <button class="btn btn-primary" onclick="App.__recReader('${taskKey}')">🎙 录一遍交差</button>
+      </div>
     </div>`;
   openSheet(title, body, { onMount(m) {
     if (isG) { const b = $('.body', m); b.style.fontSize = '17px'; b.style.lineHeight = '2'; }
+    const tts = $('#ttsBtn', m);
+    if (tts) {
+      if (!('speechSynthesis' in window)) { tts.style.display = 'none'; }
+      else tts.addEventListener('click', () => speakText(bless.text, 0.95));
+    }
   }});
 }
+/* TTS 朗读示例：浏览器自带语音合成 */
+function speakText(text, rate) {
+  if (!('speechSynthesis' in window)) { toast('此浏览器不支持朗读示例'); return; }
+  try { window.speechSynthesis.cancel(); } catch (e) {}
+  const u = new SpeechSynthesisUtterance(text.slice(0, 600));
+  u.lang = 'zh-CN';
+  u.rate = rate || 1;
+  window.speechSynthesis.speak(u);
+}
 App.__recReader = async function (taskKey) {
+  if (isWeChat || !canMedia) { toast('微信内不能录音：请在浏览器打开，或改用文字模式'); return; }
   try {
     await Recorder.start();
     const r = await Recorder.stop();
@@ -291,9 +341,26 @@ async function saveRecording(blob, type, taskKey, extra) {
   return { id, blob };
 }
 
-/* ---- 任务4：复述录音（合上原文 + 自评） ---- */
+/* ---- 任务4：复述录音（合上原文 + 自评；微信降级为文字） ---- */
 function openRecord() {
   const T = todayPhase().read;
+  if (isWeChat || !canMedia) {
+    // 微信/不支持录音 → 文字模式（不中断打卡）
+    openSheet('复述 · 文字模式（微信内）',
+      `<p class="flash-hint">微信内暂不支持录音。你可以：<br>① 右上角「⋯」→ <b>在浏览器打开</b> 后录音<br>② 直接打字复述（同样算完成）</p>
+       <textarea id="recText" class="mat-search" style="min-height:120px" placeholder="用你自己的话说一遍今天的文章大意…（≥20字）"></textarea>
+       <div class="btns"><button class="btn btn-primary" id="recTextDone">完成 →</button></div>`,
+      { onMount(m) {
+        $('#recTextDone').addEventListener('click', () => {
+          const t = $('#recText').value.trim();
+          if (t.length < 10) { toast('多说一点，至少 10 个字'); return; }
+          const d = getToday(); d.d.recText = t; Store.set('daily', App.daily);
+          toast('今天复述完成 ✍️');
+          closeSheet(); finishTask('record');
+        });
+      }});
+    return;
+  }
   openSheet('复述录音 · 60秒',
     `<p class="flash-hint">今天的文章是《${esc(T.title.replace('（节选）', ''))}》——<b>现在合上原文</b>，用自己的话说出大意。说完才许看原文。</p>
      <div class="rec-big">
@@ -619,7 +686,7 @@ async function openAiSession() {
     `<div class="ai-chat" id="aiChat">
       <div class="ai-msg bot">随机话题：<b>${esc(tp[1])}</b><br><br>你有 3 种方式：<br>① 点下方录音，说 60 秒<br>② 打字粘贴你说的话<br>③ 直接点「随便再来一个」换题</div>
     </div>
-    <div class="rec-btn-row"><button class="rec-btn rec" id="aiRec">🎙 说 60 秒</button></div>
+    <div class="rec-btn-row"><button class="rec-btn rec" id="aiRec">${(isWeChat || !canMedia) ? '✍️ 文字输入' : '🎙 说 60 秒'}</button></div>
     <input class="mat-search" id="aiText" placeholder="或者粘贴你刚才说的话（≥30字）">
     <div class="rec-btn-row">
       <button class="btn-ghost" id="aiSubmit">发送给 AI</button>
@@ -628,6 +695,7 @@ async function openAiSession() {
     { onMount(m) {
       let recording = false;
       $('#aiRec').addEventListener('click', async () => {
+        if (isWeChat || !canMedia) { toast('微信内不能录音，请直接打字粘贴你的话'); const t = $('#aiText'); if (t) t.focus(); return; }
         if (!recording) {
           try { await Recorder.start(); recording = true; $('#aiRec').textContent = '⏹ 结束'; }
           catch (e) { toast('无法录音：' + e.message); }
@@ -670,6 +738,17 @@ async function openAiSession() {
 }
 
 /* ============ 页面切换 ============ */
+function showWeChatBanner() {
+  // 微信内：显示顶部红色提示条（在 topbar 下方）
+  let banner = $('#wcBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'wcBanner';
+    banner.style.cssText = 'background:#fff3cd;color:#856404;padding:10px 14px;font-size:13px;line-height:1.6;border-bottom:1px solid #ffe69c';
+    banner.innerHTML = `⚠️ 微信内不能录音/播放。建议：右上角「⋯」→ <b>在浏览器打开</b>，功能才完整。`;
+    $('#topbar').after(banner);
+  }
+}
 function showPage(p) {
   App.page = p;
   $$('.page').forEach(x => x.classList.toggle('active', x.id === 'page-' + p));
@@ -684,7 +763,7 @@ function showPage(p) {
 function init() {
   ensureState();
   const t = getToday(); // 创建今日占位
-  // 初次打开引导
+  if (isWeChat) showWeChatBanner();
   if (!App.nick) openGuide();
   showPage('today');
   setupGlobal();
